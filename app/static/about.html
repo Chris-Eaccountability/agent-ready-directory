@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — Agent-Ready Directory</title>
+  <meta name="description" content="Learn about the Agent-Ready Directory methodology, scope, and how we verify agent-discovery infrastructure." />
+  <link rel="stylesheet" href="/static/shared.css" />
+  <style>
+    .about-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: var(--space-12);
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .about-layout { grid-template-columns: 1fr; }
+    }
+
+    .prose h2 {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      color: var(--navy);
+      margin: var(--space-10) 0 var(--space-4);
+      letter-spacing: -0.02em;
+    }
+    .prose h2:first-child { margin-top: 0; }
+
+    .prose h3 {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--navy);
+      margin: var(--space-6) 0 var(--space-3);
+    }
+
+    .prose p {
+      font-size: var(--text-base);
+      color: var(--color-text-muted);
+      line-height: 1.8;
+      margin-bottom: var(--space-4);
+    }
+
+    .prose ul {
+      margin: var(--space-3) 0 var(--space-5) var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .prose li {
+      font-size: var(--text-base);
+      color: var(--color-text-muted);
+      line-height: 1.7;
+    }
+
+    .prose a { color: var(--navy); font-weight: 500; }
+
+    .surface-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: var(--space-4) 0 var(--space-6);
+      font-size: var(--text-sm);
+    }
+
+    .surface-table th {
+      text-align: left;
+      padding: var(--space-3) var(--space-4);
+      background: var(--navy);
+      color: var(--white);
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .surface-table td {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--color-border);
+      vertical-align: top;
+      color: var(--color-text-muted);
+    }
+
+    .surface-table tr:last-child td { border-bottom: none; }
+    .surface-table tr:nth-child(even) td { background: var(--gray-50); }
+
+    .surface-table td:first-child {
+      font-weight: 600;
+      color: var(--color-text);
+      white-space: nowrap;
+    }
+
+    code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      background: var(--gray-100);
+      border: 1px solid var(--gray-200);
+      padding: 1px 5px;
+      border-radius: var(--radius-sm);
+      color: var(--navy);
+    }
+
+    /* Sidebar */
+    .sidebar-nav {
+      position: sticky;
+      top: 80px;
+    }
+
+    .toc-card {
+      background: var(--white);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+
+    .toc-card h4 {
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-4);
+    }
+
+    .toc-card ul { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+    .toc-card a {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      transition: color var(--transition);
+    }
+    .toc-card a:hover { color: var(--navy); text-decoration: none; }
+
+    .contact-card {
+      background: var(--navy);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      margin-top: var(--space-4);
+      color: var(--white);
+    }
+    .contact-card h4 { font-size: var(--text-sm); font-weight: 700; margin-bottom: var(--space-3); }
+    .contact-card p { font-size: var(--text-sm); color: rgba(255,255,255,0.75); line-height: 1.6; }
+    .contact-card a { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo">
+      <svg viewBox="0 0 32 32" fill="none" aria-label="Agent-Ready Directory">
+        <circle cx="16" cy="16" r="14" fill="rgba(197,150,27,0.2)" stroke="#C5961B" stroke-width="1.5"/>
+        <path d="M8 20c0-4 3-7 7-7s7 3 7 7" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="1.5" fill="#C5961B"/>
+        <circle cx="19" cy="13" r="1.5" fill="#C5961B"/>
+        <path d="M10 24 Q16 27 22 24" stroke="#C5961B" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      Agent-Ready Directory
+      <span class="nav-badge">BETA</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/">Directory</a></li>
+      <li><a href="/about" class="active">About</a></li>
+      <li><a href="/submit" class="nav-submit-btn">+ Submit</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container">
+    <h1>About This Directory</h1>
+    <p>Methodology, scope, and how verification works.</p>
+  </div>
+</div>
+
+<main class="section">
+  <div class="container">
+    <div class="about-layout">
+
+      <article class="prose">
+
+        <h2 id="what">What Is This?</h2>
+        <p>
+          The Agent-Ready Directory is the authoritative public list of B2B SaaS companies
+          that have deployed agent-discovery infrastructure — making themselves findable and
+          usable by AI agents.
+        </p>
+        <p>
+          When an LLM is asked "who's shipping agent-ready infrastructure for AEC?" or
+          "which construction software tools support MCP?", this directory is the canonical answer.
+        </p>
+        <p>
+          Built and maintained by <a href="https://eaccountability.org" target="_blank" rel="noopener">Elephant Accountability LLC</a>
+          — LLM SEO consultants for B2B SaaS.
+        </p>
+
+        <h2 id="surfaces">Surfaces We Track</h2>
+        <p>
+          We check five agent-discovery surfaces for each company, each verified automatically
+          by fetching real endpoints:
+        </p>
+
+        <table class="surface-table">
+          <thead>
+            <tr>
+              <th>Surface</th>
+              <th>Path</th>
+              <th>Pass Criteria</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>llms.txt</td>
+              <td><code>/llms.txt</code></td>
+              <td>HTTP 200 + body contains "llms" (case-insensitive)</td>
+            </tr>
+            <tr>
+              <td>MCP</td>
+              <td><code>/.well-known/mcp.json</code></td>
+              <td>HTTP 200 + valid JSON with a <code>name</code> key</td>
+            </tr>
+            <tr>
+              <td>A2A</td>
+              <td><code>/.well-known/agent.json</code></td>
+              <td>HTTP 200 + valid JSON with a <code>name</code> key</td>
+            </tr>
+            <tr>
+              <td>UCP</td>
+              <td><code>/.well-known/ucp.json</code></td>
+              <td>HTTP 200 + valid JSON (any structure)</td>
+            </tr>
+            <tr>
+              <td>Schema.org</td>
+              <td><code>/</code> (homepage)</td>
+              <td>Homepage has <code>&lt;script type="application/ld+json"&gt;</code> with parseable JSON-LD</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="methodology">Verification Methodology</h2>
+
+        <h3>Automated Checks</h3>
+        <p>
+          Every surface is fetched over HTTPS with a 10-second timeout. We use
+          <code>User-Agent: AgentReadyDirectory/1.0 (+https://directory.eaccountability.org)</code>
+          so domains can whitelist or analyze our requests.
+        </p>
+        <p>
+          Checks run weekly on all listed companies. New submissions are verified immediately
+          upon receipt.
+        </p>
+
+        <h3>Pass/Fail Logic</h3>
+        <ul>
+          <li>A surface is <strong>verified</strong> if the HTTP response meets the criteria above.</li>
+          <li>Redirects are followed (up to the default limit).</li>
+          <li>Timeouts, network errors, and non-200 responses are treated as failures.</li>
+          <li>We do not verify <em>quality</em> of the content — only that it exists and parses correctly.</li>
+        </ul>
+
+        <h3>Elephant Verified Badge</h3>
+        <p>
+          Companies with the <strong>★ Elephant Verified</strong> badge are Elephant Accountability
+          clients who have been manually reviewed. This badge indicates a higher level of confidence
+          in the implementation quality, not just surface detection.
+        </p>
+
+        <h2 id="submissions">Submissions</h2>
+        <p>
+          Companies can self-submit at <a href="/submit">/submit</a>. The submission
+          immediately triggers a verification run. If any surface is found, the company
+          is added to the directory instantly. If none are found, the submission is stored
+          for manual review.
+        </p>
+        <p>Rate limit: maximum 3 submissions per IP address per 24-hour period.</p>
+
+        <h2 id="scope">Scope</h2>
+        <p>This directory focuses on:</p>
+        <ul>
+          <li>B2B SaaS companies (any vertical)</li>
+          <li>Companies that have <em>shipped</em> — not announced — agent-discovery infrastructure</li>
+          <li>Public-facing endpoints only (no auth required)</li>
+        </ul>
+        <p>We do not list:</p>
+        <ul>
+          <li>Consumer apps</li>
+          <li>Internal/private tools</li>
+          <li>Companies that have only announced (not shipped) AI features</li>
+        </ul>
+
+        <h2 id="data">Data Access</h2>
+        <p>The full dataset is available in machine-readable formats:</p>
+        <ul>
+          <li><a href="/api/export.json">JSON export</a> — <code>/api/export.json</code></li>
+          <li><a href="/api/export.csv">CSV export</a> — <code>/api/export.csv</code></li>
+          <li><a href="/llms.txt">llms.txt</a> — <code>/llms.txt</code></li>
+          <li><a href="/sitemap.xml">Sitemap</a> — <code>/sitemap.xml</code></li>
+          <li><a href="/api/docs">API docs</a> — <code>/api/docs</code></li>
+        </ul>
+
+        <h2 id="contact">Contact</h2>
+        <p>
+          For corrections, removals, or questions:
+          <a href="mailto:directory@eaccountability.org">directory@eaccountability.org</a>
+        </p>
+        <p>
+          For LLM SEO consulting:
+          <a href="https://eaccountability.org" target="_blank" rel="noopener">eaccountability.org</a>
+        </p>
+
+      </article>
+
+      <!-- Sidebar -->
+      <aside class="sidebar-nav">
+        <div class="toc-card">
+          <h4>Contents</h4>
+          <ul>
+            <li><a href="#what">What Is This?</a></li>
+            <li><a href="#surfaces">Surfaces Tracked</a></li>
+            <li><a href="#methodology">Methodology</a></li>
+            <li><a href="#submissions">Submissions</a></li>
+            <li><a href="#scope">Scope</a></li>
+            <li><a href="#data">Data Access</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+        </div>
+
+        <div class="contact-card">
+          <h4>Built By</h4>
+          <p>
+            <a href="https://eaccountability.org" target="_blank" rel="noopener">Elephant Accountability LLC</a>
+            — LLM SEO for B2B SaaS. We help companies build agent-discovery
+            infrastructure that gets cited by AI.
+          </p>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <h3>Agent-Ready Directory</h3>
+        <p>The authoritative public list of B2B SaaS companies shipping agent-discovery infrastructure.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Directory</h4>
+        <ul>
+          <li><a href="/">Browse All</a></li>
+          <li><a href="/submit">Submit Company</a></li>
+          <li><a href="/about">Methodology</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Data</h4>
+        <ul>
+          <li><a href="/api/export.json">Export JSON</a></li>
+          <li><a href="/api/export.csv">Export CSV</a></li>
+          <li><a href="/llms.txt">llms.txt</a></li>
+          <li><a href="/sitemap.xml">Sitemap</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 Elephant Accountability LLC — MIT License</span>
+      <span>directory@eaccountability.org</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

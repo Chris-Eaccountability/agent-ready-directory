@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submit a Company — Agent-Ready Directory</title>
+  <meta name="description" content="Submit your B2B SaaS company to the Agent-Ready Directory. We'll automatically verify your agent-discovery infrastructure." />
+  <link rel="stylesheet" href="/static/shared.css" />
+  <!-- reCAPTCHA v3 — swap with real site key -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6LeIxAcTAAAAAJcZVRqyHh4DDl2USlfSMEONnbhV" async defer></script>
+  <style>
+    .submit-layout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: var(--space-10);
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .submit-layout { grid-template-columns: 1fr; }
+      .submit-sidebar { order: -1; }
+    }
+
+    .form-card {
+      background: var(--white);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      box-shadow: var(--shadow-md);
+    }
+
+    .form-card h2 {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: var(--space-2);
+      letter-spacing: -0.02em;
+    }
+
+    .form-card .subtitle {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-6);
+    }
+
+    .form-stack { display: flex; flex-direction: column; gap: var(--space-5); }
+
+    /* Sidebar */
+    .sidebar-card {
+      background: var(--white);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+    }
+
+    .sidebar-card h3 {
+      font-size: var(--text-base);
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: var(--space-4);
+    }
+
+    .check-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+    .check-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      line-height: 1.6;
+    }
+
+    .check-icon {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #d1fae5;
+      color: #065f46;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      justify-content: center;
+      padding: var(--space-4);
+      font-size: var(--text-base);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #submit-result { margin-top: var(--space-5); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo">
+      <svg viewBox="0 0 32 32" fill="none" aria-label="Agent-Ready Directory">
+        <circle cx="16" cy="16" r="14" fill="rgba(197,150,27,0.2)" stroke="#C5961B" stroke-width="1.5"/>
+        <path d="M8 20c0-4 3-7 7-7s7 3 7 7" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="1.5" fill="#C5961B"/>
+        <circle cx="19" cy="13" r="1.5" fill="#C5961B"/>
+        <path d="M10 24 Q16 27 22 24" stroke="#C5961B" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      Agent-Ready Directory
+      <span class="nav-badge">BETA</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/">Directory</a></li>
+      <li><a href="/about">About</a></li>
+      <li><a href="/submit" class="active nav-submit-btn">+ Submit</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container">
+    <h1>Submit Your Company</h1>
+    <p>We'll automatically verify your agent-discovery infrastructure and add you to the directory if any surface is found.</p>
+  </div>
+</div>
+
+<main class="section">
+  <div class="container">
+    <div class="submit-layout">
+
+      <!-- Form -->
+      <div class="form-card">
+        <h2>Company Details</h2>
+        <p class="subtitle">Fields marked * are required. Verification runs immediately.</p>
+
+        <form id="submit-form" class="form-stack" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="domain">Domain *</label>
+            <input
+              type="text"
+              id="domain"
+              name="domain"
+              class="form-input"
+              placeholder="example.com"
+              required
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span class="form-hint">Just the domain, no https://. E.g. procore.com</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="company_name">Company Name *</label>
+            <input
+              type="text"
+              id="company_name"
+              name="company_name"
+              class="form-input"
+              placeholder="Acme Corp"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="category">Category *</label>
+            <select id="category" name="category" class="form-select" required>
+              <option value="">Select a category…</option>
+              <option value="aec">AEC (Architecture, Engineering, Construction)</option>
+              <option value="fintech">Fintech</option>
+              <option value="healthtech">Healthtech</option>
+              <option value="consulting">Consulting</option>
+              <option value="devtools">Developer Tools</option>
+              <option value="hr">HR &amp; Workforce</option>
+              <option value="legal">Legal Tech</option>
+              <option value="logistics">Logistics &amp; Supply Chain</option>
+              <option value="marketing">Marketing Tech</option>
+              <option value="security">Security</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="email">
+              Email <span class="optional">(optional)</span>
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="form-input"
+              placeholder="you@company.com"
+            />
+            <span class="form-hint">Only used to notify you when verification completes.</span>
+          </div>
+
+          <button type="submit" class="btn btn-gold submit-btn" id="submit-btn">
+            Verify &amp; Submit
+          </button>
+
+          <div id="submit-result"></div>
+        </form>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="submit-sidebar">
+        <div class="sidebar-card">
+          <h3>What We Check</h3>
+          <ul class="check-list">
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>llms.txt</strong> — Machine-readable site summary at <code>/llms.txt</code></div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>MCP</strong> — Model Context Protocol at <code>/.well-known/mcp.json</code></div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>A2A</strong> — Agent-to-Agent protocol at <code>/.well-known/agent.json</code></div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>UCP</strong> — Universal Context Protocol at <code>/.well-known/ucp.json</code></div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div><strong>Schema.org</strong> — Structured data in your homepage HTML</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="sidebar-card mt-4">
+          <h3>Instant Verification</h3>
+          <p style="font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.7;">
+            If any surface is found, your company is added to the directory immediately.
+            If none are found, the submission is queued for manual review.
+          </p>
+        </div>
+
+        <div class="sidebar-card mt-4">
+          <h3>Rate Limit</h3>
+          <p style="font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.7;">
+            Max 3 submissions per IP per 24 hours to prevent abuse.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-bottom">
+      <span>© 2025 Elephant Accountability LLC</span>
+      <a href="/" style="color:rgba(255,255,255,0.6)">← Back to Directory</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const form = document.getElementById('submit-form');
+  const btn  = document.getElementById('submit-btn');
+  const result = document.getElementById('submit-result');
+
+  function showResult(type, html) {
+    result.innerHTML = `<div class="alert alert-${type}">${html}</div>`;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    result.innerHTML = '';
+    btn.disabled = true;
+    btn.textContent = 'Verifying…';
+
+    const domain = document.getElementById('domain').value.trim();
+    const company_name = document.getElementById('company_name').value.trim();
+    const category = document.getElementById('category').value;
+    const email = document.getElementById('email').value.trim();
+
+    if (!domain || !company_name || !category) {
+      showResult('error', 'Please fill in all required fields.');
+      btn.disabled = false;
+      btn.textContent = 'Verify & Submit';
+      return;
+    }
+
+    // reCAPTCHA v3 token
+    let recaptchaToken = '';
+    try {
+      recaptchaToken = await new Promise((resolve, reject) => {
+        if (window.grecaptcha && grecaptcha.ready) {
+          grecaptcha.ready(() => {
+            grecaptcha.execute('6LeIxAcTAAAAAJcZVRqyHh4DDl2USlfSMEONnbhV', { action: 'submit' })
+              .then(resolve).catch(reject);
+          });
+        } else {
+          resolve(''); // reCAPTCHA not loaded, proceed anyway
+        }
+      });
+    } catch {}
+
+    const payload = { domain, company_name, category };
+    if (email) payload.submitted_by_email = email;
+    if (recaptchaToken) payload.recaptcha_token = recaptchaToken;
+
+    try {
+      const resp = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+
+      if (resp.status === 409) {
+        showResult('info', `<strong>${domain}</strong> is already in the directory.`);
+      } else if (resp.status === 429) {
+        showResult('error', 'Rate limit reached. Max 3 submissions per IP per 24 hours.');
+      } else if (!resp.ok) {
+        showResult('error', data.detail || 'An error occurred. Please try again.');
+      } else if (data.status === 'verified') {
+        const surfaces = Object.entries(data.surfaces || {})
+          .filter(([,v]) => v).map(([k]) => k).join(', ');
+        showResult('success', `
+          <strong>✓ Verified!</strong> ${company_name} has been added to the directory.<br/>
+          Surfaces found: <strong>${surfaces || 'none'}</strong><br/>
+          <a href="/company/${data.slug}" style="color:#065f46;font-weight:600;">View your listing →</a>
+        `);
+        form.reset();
+      } else {
+        showResult('info', `
+          <strong>Submission received.</strong> No agent-discovery surfaces were found automatically,
+          but your submission has been recorded for manual review.
+          <br/><br/>
+          To get listed, add one of the surfaces listed on the left to your domain.
+        `);
+      }
+    } catch (err) {
+      showResult('error', `Network error: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Verify & Submit';
+    }
+  });
+</script>
+</body>
+</html>
