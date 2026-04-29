@@ -47,6 +47,18 @@ from .verifier import (
 
 logger = logging.getLogger(__name__)
 
+# Sentry — no-ops when SENTRY_DSN is empty/unset, so safe to commit.
+try:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN", ""),
+        environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+        send_default_pii=False,
+    )
+except Exception as _sentry_err:
+    logger.warning("sentry_sdk unavailable: %s", _sentry_err)
+
 # ---------------------------------------------------------------------------
 # Lifespan (startup/shutdown)
 # ---------------------------------------------------------------------------
