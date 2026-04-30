@@ -96,8 +96,9 @@
       font-weight: 700;
     }
 
-    .surface-icon-ok  { background: #d1fae5; color: #065f46; }
-    .surface-icon-no  { background: var(--gray-100); color: var(--gray-400); }
+    .surface-icon-ok    { background: #d1fae5; color: #065f46; }
+    .surface-icon-stale { background: #fef3c7; color: #92400e; }
+    .surface-icon-no    { background: var(--gray-100); color: var(--gray-400); }
 
     .surface-info { flex: 1; }
     .surface-name  {
@@ -123,8 +124,9 @@
       border-radius: var(--radius-full);
       white-space: nowrap;
     }
-    .status-ok { background: #d1fae5; color: #065f46; }
-    .status-no { background: var(--gray-100); color: var(--gray-400); }
+    .status-ok    { background: #d1fae5; color: #065f46; }
+    .status-stale { background: #fef3c7; color: #92400e; }
+    .status-no    { background: var(--gray-100); color: var(--gray-400); }
 
     .checked-at {
       font-size: var(--text-xs);
@@ -255,6 +257,19 @@
     } catch { return iso; }
   }
 
+  // Freshness window matches the verify_all_weekly cron in app/scheduler.py
+  // (Sun 04:00 UTC). Surfaces older than this lose the "Detected" pill and
+  // get marked "Stale" instead, even if last_verified_at is non-null.
+  const STALE_DAYS = 7;
+  const MS_PER_DAY = 86400000;
+
+  function daysSinceIso(iso) {
+    if (!iso) return null;
+    const t = Date.parse(iso);
+    if (isNaN(t)) return null;
+    return Math.floor((Date.now() - t) / MS_PER_DAY);
+  }
+
   async function loadCompany() {
     const slug = location.pathname.replace('/company/', '').replace(/\/$/, '');
     const content = document.getElementById('company-content');
@@ -276,21 +291,36 @@
       const surfaceMap = {};
       (c.surfaces || []).forEach(s => { surfaceMap[s.surface] = s; });
 
+      const companyDays = daysSinceIso(c.last_checked_at);
+      const companyIsStale = companyDays !== null && companyDays > STALE_DAYS;
+
       const surfaceRows = Object.entries(SURFACE_META).map(([key, meta]) => {
         const s = surfaceMap[key] || {};
-        const ok = s.verified === 1 || s.verified === true;
-        const url = s.endpoint_url || `https://${c.domain}${meta.path}`;
+        const detected = s.verified === 1 || s.verified === true;
+        // Per-surface freshness: prefer the surface's own last_verified_at
+        // (set when this surface was last seen detected), fall back to the
+        // company-level last_checked_at (when the surface was last probed).
+        const surfaceDays = daysSinceIso(s.last_verified_at) ?? companyDays;
+        const isStale = detected && surfaceDays !== null && surfaceDays > STALE_DAYS;
+
+        let iconCls, pillCls, pillText, iconChar;
+        if (!detected) {
+          iconCls = 'surface-icon-no';   pillCls = 'status-no';    pillText = 'Not found'; iconChar = '–';
+        } else if (isStale) {
+          iconCls = 'surface-icon-stale'; pillCls = 'status-stale'; pillText = `Stale (${surfaceDays}d)`; iconChar = '!';
+        } else {
+          iconCls = 'surface-icon-ok';   pillCls = 'status-ok';    pillText = 'Detected'; iconChar = '✓';
+        }
+
         return `
           <div class="surface-row">
-            <div class="surface-icon ${ok ? 'surface-icon-ok' : 'surface-icon-no'}">
-              ${ok ? '✓' : '–'}
-            </div>
+            <div class="surface-icon ${iconCls}">${iconChar}</div>
             <div class="surface-info">
               <div class="surface-name">${escHtml(meta.label)}</div>
               <div class="surface-desc">${escHtml(meta.desc)}</div>
-              ${ok && s.endpoint_url ? `<div class="surface-url"><a href="${escHtml(s.endpoint_url)}" target="_blank" rel="noopener">${escHtml(s.endpoint_url)}</a></div>` : ''}
+              ${detected && s.endpoint_url ? `<div class="surface-url"><a href="${escHtml(s.endpoint_url)}" target="_blank" rel="noopener">${escHtml(s.endpoint_url)}</a></div>` : ''}
             </div>
-            <span class="surface-status-pill ${ok ? 'status-ok' : 'status-no'}">${ok ? 'Detected' : 'Not found'}</span>
+            <span class="surface-status-pill ${pillCls}">${pillText}</span>
           </div>
         `;
       }).join('');
@@ -321,7 +351,7 @@
         <div class="surfaces-section">
           <h2>Agent-Discovery Surfaces</h2>
           <div class="surfaces-grid">${surfaceRows}</div>
-          ${c.last_checked_at ? `<p class="checked-at">Last verified: ${formatDate(c.last_checked_at)}</p>` : ''}
+          ${c.last_checked_at ? `<p class="checked-at">Last checked ${formatDate(c.last_checked_at)}${companyDays !== null ? ` &middot; ${companyDays === 0 ? 'today' : companyDays === 1 ? '1 day ago' : `${companyDays} days ago`}` : ''}${companyIsStale ? ` <span style="color:#92400e;font-weight:600;">(stale)</span>` : ''}</p>` : '<p class="checked-at" style="color:#92400e;">Never checked</p>'}
         </div>
 
         <div class="info-grid">

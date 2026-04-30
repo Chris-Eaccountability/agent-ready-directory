@@ -31,10 +31,15 @@ broken one too. Fix forward via `fly deploy --image <known-good>`.
 ## Verifier pipeline returns errors
 
 `/api/admin/verify-all` 5xxs, surface checks fail systematically, or
-`last_verification_run` in `/health` is more than 24h old.
+`oldest_check_at` in `/health` is more than 8 days old (the weekly cron
+should have touched every row within the last 7).
 
 ```bash
-# Trigger verifier manually
+# Confirm cron status
+curl -s https://agent-ready-directory.fly.dev/health \
+  | jq '{last_verifier_run_at, oldest_check_at, last_verification_run}'
+
+# Trigger verifier manually (fires the same code path as the cron)
 curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
   https://agent-ready-directory.fly.dev/api/admin/verify-all | jq .
 
@@ -48,11 +53,20 @@ sqlite3 /data/directory.db "SELECT slug, status, last_checked_at FROM companies 
 # Re-verify one company
 curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
   https://agent-ready-directory.fly.dev/api/admin/companies/<slug>/elephant-verify
+
+# Disable the weekly cron during incident response (backups still run)
+fly secrets set DIRECTORY_VERIFIER_ENABLED=false -a agent-ready-directory
+# … and re-enable
+fly secrets unset DIRECTORY_VERIFIER_ENABLED -a agent-ready-directory
 ```
 
 Escalate when: every verification fails (e.g. all `surface_status.verified=0`
 after a fresh run). Likely a verifier bug or upstream change in target sites'
 TLS/DNS. Check `app/verifier.py` for what changed.
+
+The weekly cron fires Sunday 04:00 UTC (`verify_all_weekly` job in
+`app/scheduler.py`). One hour after the nightly backup so they don't
+contend for the DB.
 
 ## DB lock / corruption
 

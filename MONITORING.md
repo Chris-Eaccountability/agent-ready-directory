@@ -17,6 +17,7 @@ Add these monitors:
 | Directory — health | `https://directory.eaccountability.org/health` | GET | 200, body contains `"status":"ok"` |
 | Directory — homepage | `https://directory.eaccountability.org/` | GET | 200, content-type `text/html` |
 | Directory — export.json | `https://directory.eaccountability.org/api/export.json` | GET | 200, body contains `"companies"` |
+| Directory — sweep freshness | `https://directory.eaccountability.org/health` | GET | 200, body contains `"sweep_status":"ok"` (weekly cron + 1d slack) |
 
 For each:
 - Interval: 1 minute

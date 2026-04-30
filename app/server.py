@@ -226,6 +226,15 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
     last_checked = conn.execute(
         "SELECT MAX(last_checked_at) as lc FROM companies"
     ).fetchone()["lc"]
+    # The OLDEST non-null last_checked_at is a lower bound on when the
+    # most recent full sweep completed — every non-deleted company should
+    # have been touched at least that recently. The frontend uses this
+    # for the public "last weekly sweep" indicator. Survives process
+    # restarts (unlike last_verifier_run_at which is in-memory).
+    oldest_checked = conn.execute(
+        "SELECT MIN(last_checked_at) as oc FROM companies "
+        "WHERE status != 'deleted' AND last_checked_at IS NOT NULL"
+    ).fetchone()["oc"]
 
     detail: dict = {}
 
@@ -251,6 +260,17 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
     # Migrations: directory uses idempotent CREATE TABLE IF NOT EXISTS — null is honest.
     detail["migrations_applied"] = None
 
+    # Last verifier run — cron-tracked, separate from DB last_checked_at.
+    # If the cron has fired this process, last_run_at reflects that. If the
+    # process restarted recently, fall back to MAX(last_checked_at) above.
+    try:
+        from .scheduler import last_verifier_run as _vr
+        vr = _vr()
+        detail["last_verifier_run_at"] = vr.get("last_run_at")
+        detail["last_verifier_run_count"] = vr.get("last_run_count")
+    except Exception as exc:
+        detail["verifier_error"] = f"{exc.__class__.__name__}: {exc}"
+
     # git_sha
     git_sha = os.environ.get("GIT_SHA") or os.environ.get("FLY_IMAGE_REF", "").rsplit(":", 1)[-1]
     if not git_sha:
@@ -265,6 +285,23 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
     # Uptime
     detail["uptime_seconds"] = int((datetime.now(timezone.utc) - _PROCESS_STARTED_AT).total_seconds())
 
+    # sweep_status: server-computed bucket from oldest_check_at so an uptime
+    # monitor can assert freshness with a simple body match instead of date
+    # math. Threshold of 8 days = weekly cadence (7) + 1 day slack for the
+    # cron firing window. RUNBOOK alert thresholds key off this same field.
+    sweep_status: str
+    if oldest_checked is None:
+        sweep_status = "no_runs_yet"
+    else:
+        try:
+            _oc_dt = datetime.fromisoformat(oldest_checked)
+            if _oc_dt.tzinfo is None:
+                _oc_dt = _oc_dt.replace(tzinfo=timezone.utc)
+            _age_days = (datetime.now(timezone.utc) - _oc_dt).days
+            sweep_status = "ok" if _age_days <= 8 else "stale"
+        except Exception:
+            sweep_status = "unparseable"
+
     return {
         "status": "ok",
         "version": __version__,
@@ -274,6 +311,8 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
             "pending": pending_count,
         },
         "last_verification_run": last_checked,
+        "oldest_check_at": oldest_checked,
+        "sweep_status": sweep_status,
         **detail,
     }
 
