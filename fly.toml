@@ -23,7 +23,16 @@ primary_region = 'iad'
   PORT = '8080'
 
 [[mounts]]
-  source = 'agent_dir_data'
+  # The volume actually provisioned on the agent-ready-directory app is named
+  # `elephant_data` (vol_vxmw5zye55921wj4). The historical fly.toml said
+  # `agent_dir_data` but used a single-bracket [mounts] table, which Fly
+  # silently ignored — so the mismatch never surfaced until the Week 1 ops
+  # commit (817d698) corrected it to [[mounts]] (array of tables) and Fly
+  # started parsing it strictly. Match the actual volume here. Renaming the
+  # provisioned volume on Fly's side is non-trivial (snapshot + new vol +
+  # restore + swap) and the name has no semantic meaning to the app, which
+  # only cares about the destination mount path.
+  source = 'elephant_data'
   destination = '/data'
 
 [http_service]
