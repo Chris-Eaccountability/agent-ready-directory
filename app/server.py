@@ -47,6 +47,9 @@ from .verifier import (
 
 logger = logging.getLogger(__name__)
 
+# Process start timestamp for /health uptime_seconds. Set at import time.
+_PROCESS_STARTED_AT = datetime.now(timezone.utc)
+
 # ---------------------------------------------------------------------------
 # Lifespan (startup/shutdown)
 # ---------------------------------------------------------------------------
@@ -198,6 +201,21 @@ async def about_page():
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health(conn: sqlite3.Connection = Depends(get_db)):
+    """Public health probe — no auth. Hit by Fly [[http_service.checks]] every 30s.
+
+    Surfaces ops fields RUNBOOK.md / MONITORING.md depend on:
+      - db_size_bytes
+      - last_backup_at / last_backup_size_bytes / backup_count
+      - git_sha (GIT_SHA env, FLY_IMAGE_REF tag, or /app/version.txt)
+      - uptime_seconds (since process import)
+
+    migrations_applied is null: this app uses idempotent CREATE TABLE IF NOT
+    EXISTS (app/db.py) rather than a numbered migration ledger. Stays here
+    as a key so the orchestrator-shaped monitoring config also matches.
+
+    Each sub-probe degrades to a string error rather than 500'ing — Fly's
+    health check shouldn't roll the machine on a single subsystem failure.
+    """
     company_count = conn.execute("SELECT COUNT(*) as cnt FROM companies").fetchone()["cnt"]
     pending_count = conn.execute(
         "SELECT COUNT(*) as cnt FROM companies WHERE status = 'pending'"
@@ -208,6 +226,45 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
     last_checked = conn.execute(
         "SELECT MAX(last_checked_at) as lc FROM companies"
     ).fetchone()["lc"]
+
+    detail: dict = {}
+
+    # DB file size
+    db_path = os.getenv("DATABASE_URL", "/data/directory.db")
+    try:
+        if Path(db_path).exists():
+            detail["db_size_bytes"] = Path(db_path).stat().st_size
+        detail["db_path"] = db_path
+    except Exception as exc:
+        detail["db_error"] = f"{exc.__class__.__name__}: {exc}"
+
+    # Last nightly backup
+    try:
+        from .sqlite_backup import status as _backup_status
+        bs = _backup_status()
+        detail["last_backup_at"] = bs.get("last_backup_at")
+        detail["last_backup_size_bytes"] = bs.get("last_backup_size_bytes")
+        detail["backup_count"] = bs.get("backup_count")
+    except Exception as exc:
+        detail["backup_error"] = f"{exc.__class__.__name__}: {exc}"
+
+    # Migrations: directory uses idempotent CREATE TABLE IF NOT EXISTS — null is honest.
+    detail["migrations_applied"] = None
+
+    # git_sha
+    git_sha = os.environ.get("GIT_SHA") or os.environ.get("FLY_IMAGE_REF", "").rsplit(":", 1)[-1]
+    if not git_sha:
+        try:
+            vpath = Path("/app/version.txt")
+            if vpath.exists():
+                git_sha = vpath.read_text().strip()
+        except Exception:
+            pass
+    detail["git_sha"] = git_sha or None
+
+    # Uptime
+    detail["uptime_seconds"] = int((datetime.now(timezone.utc) - _PROCESS_STARTED_AT).total_seconds())
+
     return {
         "status": "ok",
         "version": __version__,
@@ -217,6 +274,7 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
             "pending": pending_count,
         },
         "last_verification_run": last_checked,
+        **detail,
     }
 
 
