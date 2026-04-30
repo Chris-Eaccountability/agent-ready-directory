@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
-    """Initialize DB and seed on startup."""
+    """Initialize DB and seed on startup. Start nightly backup scheduler."""
     import asyncio
 
     conn = get_connection()
@@ -65,8 +65,23 @@ async def lifespan(app_: FastAPI):
         asyncio.get_event_loop().call_soon(
             lambda: asyncio.ensure_future(_background_verify(conn))
         )
+
+    # Nightly SQLite snapshot job (Week 1 ops hardening).
+    # Imported lazily so a missing apscheduler dep doesn't break startup.
+    try:
+        from .scheduler import start as _sched_start
+        _sched_start()
+    except Exception:
+        logger.exception("scheduler start failed (non-fatal)")
+
     yield
-    # Shutdown: nothing to clean up (SQLite closes on process exit)
+
+    # Shutdown: stop the scheduler so the event loop can close cleanly.
+    try:
+        from .scheduler import stop as _sched_stop
+        _sched_stop()
+    except Exception:
+        logger.exception("scheduler stop failed (non-fatal)")
 
 
 async def _background_verify(conn):
