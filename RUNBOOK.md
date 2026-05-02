@@ -103,3 +103,52 @@ curl -s https://agent-ready-directory.fly.dev/health | jq '.last_backup_at, .db_
 
 Escalate when: every backup in `/data/backups/` also fails `integrity_check`.
 Restore from a Fly volume snapshot (`fly volumes snapshots list`).
+
+## Seed gate (production stance)
+
+The directory must never bootstrap with un-audited rows. As of 2026-05-02
+(P0 legitimacy fix), `app/seed.py` only inserts when `DEV_MODE=1` is set
+in the environment. Production has no such variable, so cold boot leaves
+the database empty until real submissions arrive.
+
+```bash
+# Confirm the gate is working in production
+fly logs -a agent-ready-directory --no-tail | grep -i "seed"
+# Expected on a cold boot:
+#   Seed skipped: DEV_MODE is not set. Production-safe boot.
+
+# Verify there is no DEV_MODE secret leaking into prod
+fly secrets list -a agent-ready-directory | grep -i dev_mode
+# Expected: no output. If DEV_MODE=1 appears here, unset it immediately:
+fly secrets unset DEV_MODE -a agent-ready-directory
+```
+
+## Drop legacy unverified seed rows (one-time, post-P0)
+
+Older deployments seeded 8 third-party companies (Bentley, Procore,
+Autodesk, Trimble, Exodigo, Screening Eagle, Geolitix, GSSI) with
+`status='verified'` despite never having gone through an EVI audit.
+The migration removes them. It is idempotent and refuses to delete any
+row that has a `submitted_by_email` set (i.e. a real submission).
+
+```bash
+# 1. Snapshot the DB before running
+fly ssh console -a agent-ready-directory
+cp /data/directory.db /data/directory.db.pre-p0
+
+# 2. Dry run first — no changes, just a report
+python /app/migrations/001_drop_unverified_seed_rows.py --dry-run
+
+# 3. Apply
+python /app/migrations/001_drop_unverified_seed_rows.py
+
+# 4. Confirm
+sqlite3 /data/directory.db "SELECT slug, name, status FROM companies;"
+# Expected after migration: only elephant-accountability and
+# fathom-smart-auger should remain (or fewer, if a fresh prod boot
+# never ran the legacy seed).
+```
+
+If the migration shows `Skipped (real submissions): N > 0`, those slugs
+have legitimate submitter emails on them and were left in place. Review
+each manually before any further action.
