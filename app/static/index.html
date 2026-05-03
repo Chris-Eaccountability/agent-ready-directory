@@ -348,13 +348,12 @@
 <!-- Surface legend bar -->
 <div class="surface-legend">
   <div class="container legend-inner">
-    <span class="legend-label">Surfaces:</span>
-    <span class="legend-item"><span class="legend-dot legend-dot-green"></span>llms.txt</span>
-    <span class="legend-item"><span class="legend-dot legend-dot-green"></span>MCP</span>
-    <span class="legend-item"><span class="legend-dot legend-dot-green"></span>A2A</span>
-    <span class="legend-item"><span class="legend-dot legend-dot-green"></span>UCP</span>
-    <span class="legend-item"><span class="legend-dot legend-dot-green"></span>Schema.org</span>
+    <span class="legend-label">Status:</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#10b981;border-color:#10b981;"></span>Verified (≤7d)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#d97706;border-color:#d97706;"></span>Stale (&gt;7d)</span>
     <span class="legend-item"><span class="legend-dot legend-dot-gray"></span>Not detected</span>
+    <span class="legend-item" style="margin-left:auto;color:var(--color-text-muted);"
+          id="legend-sweep">Loading sweep status…</span>
   </div>
 </div>
 
@@ -441,6 +440,28 @@
   const SURFACES = ['llms_txt', 'mcp', 'a2a', 'ucp', 'schema_org'];
   const SURFACE_LABELS = { llms_txt: 'llms.txt', mcp: 'MCP', a2a: 'A2A', ucp: 'UCP', schema_org: 'Schema' };
 
+  // Freshness window. The directory advertises weekly verification; anything
+  // older than this loses its "verified" badge and shows "stale" instead.
+  // Tied to the verify_all_weekly cron (Sun 04:00 UTC) in app/scheduler.py.
+  const STALE_DAYS = 7;
+  const MS_PER_DAY = 86400000;
+
+  function daysSince(iso) {
+    if (!iso) return null;
+    const t = Date.parse(iso);
+    if (isNaN(t)) return null;
+    return Math.floor((Date.now() - t) / MS_PER_DAY);
+  }
+
+  function freshnessLabel(iso) {
+    const d = daysSince(iso);
+    if (d === null) return { text: 'Never verified', cls: 'is-never' };
+    if (d === 0) return { text: 'Verified today', cls: '' };
+    if (d === 1) return { text: 'Verified yesterday', cls: '' };
+    if (d <= STALE_DAYS) return { text: `Verified ${d}d ago`, cls: '' };
+    return { text: `Stale (${d}d ago)`, cls: 'is-stale' };
+  }
+
   let state = {
     category: '',
     q: '',
@@ -485,10 +506,28 @@
 
   function renderCard(c) {
     const surfaces = c.surfaces || {};
+    const days = daysSince(c.last_checked_at);
+    const isFresh = days !== null && days <= STALE_DAYS;
+    const isStale = days !== null && days > STALE_DAYS;
+
     const badges = SURFACES.map(s => {
-      const ok = surfaces[s] === true;
-      return `<span class="badge ${ok ? 'badge-verified' : 'badge-unverified'}">${SURFACE_LABELS[s]}</span>`;
+      const detected = surfaces[s] === true;
+      let cls;
+      if (!detected) {
+        cls = 'badge-unverified';
+      } else if (isFresh) {
+        cls = 'badge-verified';
+      } else if (isStale) {
+        cls = 'badge-stale';
+      } else {
+        // detected=true but never checked (shouldn't happen post-cron) — treat as stale
+        cls = 'badge-stale';
+      }
+      return `<span class="badge ${cls}">${SURFACE_LABELS[s]}</span>`;
     }).join('');
+
+    const fresh = freshnessLabel(c.last_checked_at);
+    const freshnessHtml = `<div class="card-freshness ${fresh.cls}">${escHtml(fresh.text)}</div>`;
 
     const elephantBadge = c.elephant_verified
       ? `<span class="elephant-badge">★ Elephant Verified</span>`
@@ -511,6 +550,7 @@
         ${c.category ? `<span class="category-chip">${escHtml(c.category.toUpperCase())}</span>` : ''}
         ${c.description ? `<p class="card-description">${escHtml(c.description)}</p>` : ''}
         <div class="badges">${badges}</div>
+        ${freshnessHtml}
       </a>
     `;
   }
@@ -552,9 +592,37 @@
 
   function updateStats() {
     document.getElementById('stat-total').textContent = state.total;
-    // Fetch health for verified count
+    // Fetch health for verified count + last sweep timestamp.
+    // The legend bar shows the same sweep info so it's visible even
+    // before /health resolves (just labelled "Loading…" until then).
     fetch('/health').then(r => r.json()).then(h => {
       document.getElementById('stat-verified').textContent = h.counts?.verified ?? '—';
+
+      // Pick the most-honest sweep timestamp:
+      //   1. last_verifier_run_at — set in-memory by the cron (tightest)
+      //   2. oldest_check_at — DB-derived; lower bound on when the last
+      //      full sweep completed. Survives process restarts.
+      // Fall back to last_verification_run (MAX) only if both are absent.
+      const sweepIso = h.last_verifier_run_at
+        || h.oldest_check_at
+        || h.last_verification_run;
+      const legendEl = document.getElementById('legend-sweep');
+      if (legendEl) {
+        const d = daysSince(sweepIso);
+        if (d === null) {
+          legendEl.textContent = 'No verification sweep on record yet';
+          legendEl.style.color = '#92400e';
+        } else if (d === 0) {
+          legendEl.textContent = 'Last weekly sweep: today';
+        } else if (d === 1) {
+          legendEl.textContent = 'Last weekly sweep: yesterday';
+        } else if (d <= STALE_DAYS) {
+          legendEl.textContent = `Last weekly sweep: ${d}d ago`;
+        } else {
+          legendEl.textContent = `Last weekly sweep: ${d}d ago (overdue)`;
+          legendEl.style.color = '#92400e';
+        }
+      }
     }).catch(() => {});
   }
 

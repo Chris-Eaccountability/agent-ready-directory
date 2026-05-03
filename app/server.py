@@ -47,24 +47,15 @@ from .verifier import (
 
 logger = logging.getLogger(__name__)
 
-# Sentry — no-ops when SENTRY_DSN is empty/unset, so safe to commit.
-try:
-    import sentry_sdk
-    sentry_sdk.init(
-        dsn=os.getenv("SENTRY_DSN", ""),
-        environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
-        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
-        send_default_pii=False,
-    )
-except Exception as _sentry_err:
-    logger.warning("sentry_sdk unavailable: %s", _sentry_err)
+# Process start timestamp for /health uptime_seconds. Set at import time.
+_PROCESS_STARTED_AT = datetime.now(timezone.utc)
 
 # ---------------------------------------------------------------------------
 # Lifespan (startup/shutdown)
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
-    """Initialize DB and seed on startup."""
+    """Initialize DB and seed on startup. Start nightly backup scheduler."""
     import asyncio
 
     conn = get_connection()
@@ -77,8 +68,23 @@ async def lifespan(app_: FastAPI):
         asyncio.get_event_loop().call_soon(
             lambda: asyncio.ensure_future(_background_verify(conn))
         )
+
+    # Nightly SQLite snapshot job (Week 1 ops hardening).
+    # Imported lazily so a missing apscheduler dep doesn't break startup.
+    try:
+        from .scheduler import start as _sched_start
+        _sched_start()
+    except Exception:
+        logger.exception("scheduler start failed (non-fatal)")
+
     yield
-    # Shutdown: nothing to clean up (SQLite closes on process exit)
+
+    # Shutdown: stop the scheduler so the event loop can close cleanly.
+    try:
+        from .scheduler import stop as _sched_stop
+        _sched_stop()
+    except Exception:
+        logger.exception("scheduler stop failed (non-fatal)")
 
 
 async def _background_verify(conn):
@@ -195,6 +201,21 @@ async def about_page():
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health(conn: sqlite3.Connection = Depends(get_db)):
+    """Public health probe — no auth. Hit by Fly [[http_service.checks]] every 30s.
+
+    Surfaces ops fields RUNBOOK.md / MONITORING.md depend on:
+      - db_size_bytes
+      - last_backup_at / last_backup_size_bytes / backup_count
+      - git_sha (GIT_SHA env, FLY_IMAGE_REF tag, or /app/version.txt)
+      - uptime_seconds (since process import)
+
+    migrations_applied is null: this app uses idempotent CREATE TABLE IF NOT
+    EXISTS (app/db.py) rather than a numbered migration ledger. Stays here
+    as a key so the orchestrator-shaped monitoring config also matches.
+
+    Each sub-probe degrades to a string error rather than 500'ing — Fly's
+    health check shouldn't roll the machine on a single subsystem failure.
+    """
     company_count = conn.execute("SELECT COUNT(*) as cnt FROM companies").fetchone()["cnt"]
     pending_count = conn.execute(
         "SELECT COUNT(*) as cnt FROM companies WHERE status = 'pending'"
@@ -205,6 +226,82 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
     last_checked = conn.execute(
         "SELECT MAX(last_checked_at) as lc FROM companies"
     ).fetchone()["lc"]
+    # The OLDEST non-null last_checked_at is a lower bound on when the
+    # most recent full sweep completed — every non-deleted company should
+    # have been touched at least that recently. The frontend uses this
+    # for the public "last weekly sweep" indicator. Survives process
+    # restarts (unlike last_verifier_run_at which is in-memory).
+    oldest_checked = conn.execute(
+        "SELECT MIN(last_checked_at) as oc FROM companies "
+        "WHERE status != 'deleted' AND last_checked_at IS NOT NULL"
+    ).fetchone()["oc"]
+
+    detail: dict = {}
+
+    # DB file size
+    db_path = os.getenv("DATABASE_URL", "/data/directory.db")
+    try:
+        if Path(db_path).exists():
+            detail["db_size_bytes"] = Path(db_path).stat().st_size
+        detail["db_path"] = db_path
+    except Exception as exc:
+        detail["db_error"] = f"{exc.__class__.__name__}: {exc}"
+
+    # Last nightly backup
+    try:
+        from .sqlite_backup import status as _backup_status
+        bs = _backup_status()
+        detail["last_backup_at"] = bs.get("last_backup_at")
+        detail["last_backup_size_bytes"] = bs.get("last_backup_size_bytes")
+        detail["backup_count"] = bs.get("backup_count")
+    except Exception as exc:
+        detail["backup_error"] = f"{exc.__class__.__name__}: {exc}"
+
+    # Migrations: directory uses idempotent CREATE TABLE IF NOT EXISTS — null is honest.
+    detail["migrations_applied"] = None
+
+    # Last verifier run — cron-tracked, separate from DB last_checked_at.
+    # If the cron has fired this process, last_run_at reflects that. If the
+    # process restarted recently, fall back to MAX(last_checked_at) above.
+    try:
+        from .scheduler import last_verifier_run as _vr
+        vr = _vr()
+        detail["last_verifier_run_at"] = vr.get("last_run_at")
+        detail["last_verifier_run_count"] = vr.get("last_run_count")
+    except Exception as exc:
+        detail["verifier_error"] = f"{exc.__class__.__name__}: {exc}"
+
+    # git_sha
+    git_sha = os.environ.get("GIT_SHA") or os.environ.get("FLY_IMAGE_REF", "").rsplit(":", 1)[-1]
+    if not git_sha:
+        try:
+            vpath = Path("/app/version.txt")
+            if vpath.exists():
+                git_sha = vpath.read_text().strip()
+        except Exception:
+            pass
+    detail["git_sha"] = git_sha or None
+
+    # Uptime
+    detail["uptime_seconds"] = int((datetime.now(timezone.utc) - _PROCESS_STARTED_AT).total_seconds())
+
+    # sweep_status: server-computed bucket from oldest_check_at so an uptime
+    # monitor can assert freshness with a simple body match instead of date
+    # math. Threshold of 8 days = weekly cadence (7) + 1 day slack for the
+    # cron firing window. RUNBOOK alert thresholds key off this same field.
+    sweep_status: str
+    if oldest_checked is None:
+        sweep_status = "no_runs_yet"
+    else:
+        try:
+            _oc_dt = datetime.fromisoformat(oldest_checked)
+            if _oc_dt.tzinfo is None:
+                _oc_dt = _oc_dt.replace(tzinfo=timezone.utc)
+            _age_days = (datetime.now(timezone.utc) - _oc_dt).days
+            sweep_status = "ok" if _age_days <= 8 else "stale"
+        except Exception:
+            sweep_status = "unparseable"
+
     return {
         "status": "ok",
         "version": __version__,
@@ -214,6 +311,9 @@ async def health(conn: sqlite3.Connection = Depends(get_db)):
             "pending": pending_count,
         },
         "last_verification_run": last_checked,
+        "oldest_check_at": oldest_checked,
+        "sweep_status": sweep_status,
+        **detail,
     }
 
 

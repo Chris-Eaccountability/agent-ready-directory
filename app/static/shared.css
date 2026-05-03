@@ -355,6 +355,12 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--gray-200);
 }
 
+.badge-stale {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
 .badge-elephant {
   background: var(--gold);
   color: var(--navy-dark);
@@ -375,6 +381,22 @@ a:hover { text-decoration: underline; }
   background: var(--gray-400);
   flex-shrink: 0;
 }
+.badge-stale::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #d97706;
+  flex-shrink: 0;
+}
+
+/* Per-card freshness label */
+.card-freshness {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+.card-freshness.is-stale { color: #92400e; }
+.card-freshness.is-never { color: var(--gray-400); }
 
 /* --------------------------------------------------------------------------
    Category chip

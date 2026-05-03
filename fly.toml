@@ -1,43 +1,77 @@
-app = "agent-ready-directory"
-primary_region = "iad"
+# fly.toml app configuration file generated for agent-ready-directory on 2026-04-23T15:44:05-07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'agent-ready-directory'
+primary_region = 'iad'
 
 [build]
 
+# Auto-rollback on failed health check during deploy: if the new release
+# can't pass [[http_service.checks]] within wait_timeout, Fly rolls back to
+# the previous release automatically. Pairs with the nightly SQLite snapshot
+# job (app/sqlite_backup.py).
+[deploy]
+  strategy = "rolling"
+  wait_timeout = "5m"
+
+[experimental]
+  auto_rollback = true
+
 [env]
-  PORT = "8080"
+  PORT = '8080'
+
+[[mounts]]
+  # The volume actually provisioned on the agent-ready-directory app is named
+  # `elephant_data` (vol_vxmw5zye55921wj4). The historical fly.toml said
+  # `agent_dir_data` but used a single-bracket [mounts] table, which Fly
+  # silently ignored — so the mismatch never surfaced until the Week 1 ops
+  # commit (817d698) corrected it to [[mounts]] (array of tables) and Fly
+  # started parsing it strictly. Match the actual volume here. Renaming the
+  # provisioned volume on Fly's side is non-trivial (snapshot + new vol +
+  # restore + swap) and the name has no semantic meaning to the app, which
+  # only cares about the destination mount path.
+  source = 'elephant_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
+  processes = ['app']
 
-[[vm]]
-  memory = "256mb"
-  cpu_kind = "shared"
-  cpus = 1
-
-[mounts]
-  source = "agent_dir_data"
-  destination = "/data"
+[[http_service.checks]]
+  grace_period = "15s"
+  interval = "30s"
+  method = "GET"
+  path = "/health"
+  protocol = "http"
+  timeout = "5s"
 
 [[services]]
-  protocol = "tcp"
+  protocol = 'tcp'
   internal_port = 8080
-  processes = ["app"]
+  processes = ['app']
 
   [[services.ports]]
     port = 80
-    handlers = ["http"]
+    handlers = ['http']
     force_https = true
 
   [[services.ports]]
     port = 443
-    handlers = ["tls", "http"]
+    handlers = ['tls', 'http']
 
   [services.concurrency]
-    type = "connections"
+    type = 'connections'
     hard_limit = 25
     soft_limit = 20
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
