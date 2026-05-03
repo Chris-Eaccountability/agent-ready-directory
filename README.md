@@ -56,12 +56,23 @@ pytest -v
 |---|---|---|
 | `DATABASE_URL` | `/data/directory.db` | SQLite file path |
 | `ADMIN_TOKEN` | *(required for admin routes)* | Bearer token for admin API |
+| `SENTRY_DSN` | *(empty — SDK no-ops)* | Sentry project DSN. Set as a Fly secret to enable error/perf tracking. |
+| `SENTRY_ENVIRONMENT` | `development` | Logical environment tag. |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.0` | 0–1 sample rate for performance traces. |
 
 Set in `.env` file (never commit):
 
 ```
 ADMIN_TOKEN=your-secret-token-here
 DATABASE_URL=/data/directory.db
+```
+
+### Pre-commit (one-time per clone)
+
+`.pre-commit-config.yaml` runs gitleaks + standard checks on every `git commit`:
+
+```bash
+pip install pre-commit && pre-commit install
 ```
 
 ---
